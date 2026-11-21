@@ -36,7 +36,7 @@ class BlenderEnvironment(Environment[BlenderAction, BlenderObservation, BlenderS
         task_id = episode_id or f"cube-{uuid.uuid4().hex[:10]}"
         workspace = self.artifact_root / task_id
         workspace.mkdir(parents=True, exist_ok=True)
-        self._state = BlenderState(task_id=task_id, seed=seed, step_count=0, step_index=0,
+        self._state = BlenderState(episode_id=task_id, task_id=task_id, seed=seed, step_count=0, step_index=0,
                                    done=False, workspace=str(workspace),
                                    task_spec={"target_dimensions": target})
         self._artifact = self.worker.reset(seed, str(workspace))
