@@ -1,52 +1,85 @@
 # BlenderEnv
 
-An OpenEnv-based reinforcement-learning environment for training LLM agents to create and iteratively improve 3D assets in Blender.
+An OpenEnv environment for training LLM agents to create and refine 3D assets in Blender.
 
-> Status: early scaffold. The environment contract, evaluator, and worker lifecycle are intentionally small and will evolve behind stable interfaces.
+**Current milestone: runnable v0.2 vertical slice.** One dimension-matched cube task, allowlisted actions, a headless Blender subprocess worker, deterministic terminal reward, episode artifact logging, typed OpenEnv server/client, and unit tests.
 
-## Project goals
+## Quick start
 
-- Provide a reproducible, resettable Blender environment for agent episodes.
-- Expose structured modeling actions and compact observations.
-- Evaluate artifacts with deterministic geometry and constraint checks first; use visual or learned judges selectively.
-- Keep the environment independent of the RL trainer (for example, verl).
-- Persist task definitions, trajectories, renders, and final artifacts with provenance.
+Requirements: Python 3.11+, Blender 3.6+ on PATH.
 
-## Architecture (target)
-
-```text
-LLM policy
-   |  OpenEnv client
-   v
-BlenderEnv API  ---- Task factory / task spec
-   |
-   +---- Action executor ---- isolated headless Blender worker
-   |
-   +---- Observation builder (scene graph, geometry, renders)
-   |
-   +---- Evaluator (validity gates, geometry metrics, constraints)
-   |
-   +---- Artifact / trajectory storage
-   |
-   +---- Trainer adapter (verl or another RL trainer)
+```bash
+pip install -e '.[dev]'
+pytest -q
+python scripts/evaluate_local.py --seed 42
 ```
 
-## Development status
+Start the OpenEnv server:
 
-This repository currently contains the initial project scaffold and design notes. The first implementation milestone is a minimal vertical slice: reset a task, execute one structured action, return an observation, and compute a terminal reward for a simple object task.
+```bash
+blender-env-server --host 127.0.0.1 --port 8000
+```
+
+Docker:
+
+```bash
+docker build -f server/Dockerfile -t blender-env:local .
+docker run --rm -p 8000:8000 -v "$PWD/artifacts:/tmp/blender-env" blender-env:local
+```
+
+See [docs/runbook.md](docs/runbook.md) and [docs/evaluation.md](docs/evaluation.md).
+
+## Task and actions
+
+Reset samples three target dimensions from a deterministic seed. The diagnostic observation exposes the target dimensions directly. Supported actions:
+
+- `create_cube`
+- `set_dimensions` with three positive dimensions
+- `bevel` with a bounded width
+- `finish` to submit the artifact
+
+No arbitrary Python or shell execution is exposed to the agent.
+
+## Reward
+
+Terminal-only deterministic reward:
+- Hard validity gate: Blender execution, exactly one mesh, finite positive dimensions, minimum mesh vertex count.
+- Geometry match: exponential mean absolute log-ratio error on dimensions.
+- Valid reward: `0.2 + 0.8 * dimension_match`.
+- Invalid reward: `0.0`.
+
+Evaluator version, raw metrics, failure reasons, scene snapshot, and seed are saved in `episode.json`.
+
+**Important:** this task isolates tool-use and geometry control; because target dimensions are visible, it does not test instruction inference or general 3D modeling ability.
+
+## Architecture
+
+```text
+OpenEnv client / trainer
+        |
+OpenEnv FastAPI server
+        |
+BlenderEnvironment (single session)
+        |
+allowlisted action validation
+        |
+Blender subprocess (one process per action)
+        |
+.blend + structured scene snapshot
+        |
+deterministic evaluator + episode.json
+```
+
+## Status
+
+Implemented: reproducible task, action schema, Blender subprocess boundary, terminal evaluator, in-memory test double, OpenEnv adapter, Docker packaging, local evaluation script.
+
+Not yet implemented: multi-object tasks, reference-image evaluation, VLM/human preference models, large task factories, trajectory database, parallel worker scheduler, and verl/GRPO integration. Do not start large-scale RL until the real Blender episode and reward validity have been checked.
 
 ## Design document
 
-See the companion [BlenderEnv Master Technical Design](https://app.notion.com/p/41f230c18601815483adc39f23231faf) for the broader architecture, dataset strategy, reward design, and milestones.
-
-## Principles
-
-1. **Outcome-first reward:** terminal artifact quality is the primary signal initially.
-2. **Hard validity gates:** invalid or broken geometry cannot be rescued by a visually pleasing render.
-3. **No proxy gaming:** do not reward tool-call count, render frequency, or evaluator invocation.
-4. **Reproducibility:** every task and episode records its seed, environment version, Blender version, and evaluator version.
-5. **Trainer independence:** OpenEnv is the environment boundary; trainer-specific code lives in adapters.
+See the [BlenderEnv Master Technical Design](https://app.notion.com/p/41f230c18601815483adc39f23231faf).
 
 ## License
 
-No license has been selected yet. Until one is added, all rights are reserved by default.
+No license has been selected. This repository is public, but reuse is not licensed; all rights are reserved by default.
