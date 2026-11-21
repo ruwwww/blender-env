@@ -1,6 +1,6 @@
 """OpenEnv environment for a single-object cube dimension task."""
 from __future__ import annotations
-import json, os, random, uuid
+import json, os, random, re, uuid
 from pathlib import Path
 from typing import Any
 from openenv.core.env_server.interfaces import Environment
@@ -33,7 +33,8 @@ class BlenderEnvironment(Environment[BlenderAction, BlenderObservation, BlenderS
         seed = 0 if seed is None else int(seed)
         rng = random.Random(seed)
         target = [round(rng.uniform(0.8, 2.5), 2) for _ in range(3)]
-        task_id = episode_id or f"cube-{uuid.uuid4().hex[:10]}"
+        raw_id = episode_id or f"cube-{uuid.uuid4().hex[:10]}"
+        task_id = re.sub(r"[^A-Za-z0-9_-]", "-", raw_id)[:80].strip("-_") or f"cube-{uuid.uuid4().hex[:10]}"
         workspace = self.artifact_root / task_id
         workspace.mkdir(parents=True, exist_ok=True)
         self._state = BlenderState(episode_id=task_id, task_id=task_id, seed=seed, step_count=0, step_index=0,
