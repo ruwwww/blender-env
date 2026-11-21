@@ -1,0 +1,22 @@
+spec_version: 1
+name: blender-env
+version: 0.2.0
+type: space
+runtime: fastapi
+app: blender_env.server.app:app
+port: 8000
+validation:
+  reward:
+    range: [0.0, 1.0]
+    oracle_tolerance: 0.000001
+    floor_margin: 0.0
+  resources:
+    cpu: 2.0
+    memory_mb: 4096
+    disk_mb: 2048
+    episode_timeout_s: 300.0
+  capabilities:
+    verifier:
+      kind: reward_channel
+  types:
+    tags: [3d, blender, modeling, rl]

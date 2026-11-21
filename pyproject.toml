@@ -1,26 +1,23 @@
 [build-system]
 requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
-
 [project]
 name = "blender-env"
-version = "0.1.0"
-description = "An OpenEnv-based RL environment for LLM-driven 3D modeling with Blender."
+version = "0.2.0"
+description = "OpenEnv environment for RL agents that create and refine 3D assets in Blender."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "UNLICENSED" }
-dependencies = []
-
+dependencies = ["openenv>=0.10.0,<0.11", "pydantic>=2.7"]
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
-
+dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27"]
+[project.scripts]
+blender-env-server = "blender_env.server.app:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/blender_env"]
-
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"
