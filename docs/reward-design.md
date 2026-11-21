@@ -1,23 +1,17 @@
-# Reward and Evaluation Design
+# Reward design (v0.2)
 
-## Initial strategy
+The evaluator is deterministic and terminal-only.
 
-Use deterministic programmatic evaluation as the default reward source. The terminal artifact is the primary optimization target. Keep reward components separately logged so weights and evaluator versions can be audited.
+Validity is a hard gate: successful Blender execution, exactly one mesh object, three finite positive dimensions, and at least eight vertices. If any gate fails, reward is zero.
 
-## Evaluation tiers
+For valid geometry:
 
-1. Validity gates: Blender execution completed, expected objects exist, transforms are finite, mesh data is readable, and hard constraints pass.
-2. Geometry and task metrics: dimensions, bounding boxes, component counts, topology diagnostics, silhouette agreement, surface distance for reference tasks, and normals where relevant.
-3. Preference signals: selective VLM or human pairwise judgments for visual qualities deterministic metrics cannot capture.
+`dimension_match = exp(-mean_i(abs(log(actual_i / target_i))) )`
 
-## Guardrails
+`reward = 0.2 + 0.8 * dimension_match`
 
-- A hard validity failure must not be compensated by a high visual score.
-- Do not reward action count, render count, evaluator calls, or verbosity.
-- Avoid dense shaping until it correlates with final artifact quality.
-- Record raw metrics, normalized metrics, weights, evaluator version, and failure reasons.
-- Test for reward hacking with adversarial and held-out task variants.
+An exact match scores 1.0. Multiplicative error is symmetric in log space: twice too large and half as large have equal per-axis error.
 
-## Open decisions
+No per-action reward is issued. The evaluator does not reward tool calls, renders, verbosity, or attempts. Each terminal episode stores evaluator version, target and actual dimensions, component scores, and failure reasons.
 
-Define metric implementations and normalization per task family; calibrate thresholds against human-reviewed artifacts; decide which intermediate diagnostics are safe to expose to the policy.
+This is a plumbing benchmark, not a final 3D quality metric. Before broad RL, calibrate it against adversarial geometry and human-reviewed task variants.
