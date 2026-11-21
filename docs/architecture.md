@@ -1,32 +1,21 @@
 # Architecture
 
-## Boundary
+The OpenEnv SDK's Pydantic models and Environment base class form the wire boundary. Task/evaluator logic remains trainer-independent.
 
-OpenEnv is the agent-facing environment boundary. Blender execution, task generation, evaluation, and storage remain separate modules/services. The RL trainer (for example, verl) integrates through an adapter and does not define the environment domain model.
+- `models.py`: OpenEnv Action, Observation, State.
+- `server/environment.py`: reset/step/state lifecycle and terminal reward.
+- `worker.py`: Blender subprocess boundary and in-memory test double.
+- `blender_worker.py`: script executed by Blender's embedded Python.
+- `evaluation/geometry.py`: validity gates and deterministic dimension score.
+- `client.py`: typed EnvClient adapter.
+- `server/app.py`: OpenEnv FastAPI application.
 
-## Episode lifecycle
-
-1. Sample a task specification and deterministic seed.
-2. Allocate an isolated Blender workspace/worker.
-3. Reset the scene and return an initial observation.
-4. Validate and execute a structured action.
-5. Return scene metadata, diagnostics, and optional render references.
-6. Evaluate the terminal artifact and persist the trajectory.
-7. Release worker resources.
-
-## Planned modules
-
-- contracts.py: trainer-agnostic action, observation, and reward types.
-- tasks/: task schemas, factories, curriculum, and provenance.
-- worker.py: isolated headless Blender process boundary.
-- evaluation/: validity gates and geometry/constraint metrics.
-- OpenEnv adapter: SDK-specific reset/step/close translation after the SDK version is pinned.
-- Storage: artifacts, renders, logs, and trajectories.
+One worker process is launched per action; the saved .blend file carries scene state between actions. The server currently allows one active session until concurrency isolation is stress-tested.
 
 ## Security
 
-Never execute arbitrary agent-provided Python inside the API server. If scripting actions are introduced, execute them only in disposable isolated workers with filesystem/network restrictions, resource quotas, timeouts, and explicit allowlists. Treat blend files and imported assets as untrusted inputs.
+Only four allowlisted operations reach Blender. Agent-provided Python is never executed. Each Blender call has a timeout and communicates through JSON in an episode workspace. Production hardening should additionally use a non-root user, resource quotas, network egress restrictions, filesystem isolation, and an authenticated gateway protecting infrastructure routes.
 
-## MVP vertical slice
+## MVP trade-offs
 
-One primitive-object task, one structured action, one headless Blender worker, one scene observation, and one deterministic terminal evaluator.
+The first task measures dimensions rather than aesthetic quality. This creates a deterministic, cheap signal for validating action semantics and reward plumbing. It is not evidence of general 3D modeling competence.
